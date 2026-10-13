@@ -1,0 +1,36 @@
+# K-pop / club-pop short-play profile. These are the values the reference 76-track set was
+# planned with: every track lands on its hook and leaves after it (~1:00-1:30 each).
+name: kpop
+description: K-pop and club pop, short play (hook to hook), 8-bar phrasing
+phrase_bars: 8
+tempo:
+  blend_max_pct: 6.5        # wider gaps cut instead of blend
+  half_double_time: false   # treat 87 -> 174 as a 100% jump, not a match
+play:
+  target_sec: 72
+  min_sec: 50
+  max_sec: 92
+  min_bars_after_landing: 16
+closer:
+  target_sec: 85
+  max_sec: 100
+  min_bars_after_landing: 24
+  fallback_bars: 48
+blend:
+  overlap_long: 8
+  overlap_short: 4
+  vocal_stack_pct: 80       # both tracks singing above this -> cut instead
+  prefer_blend_bonus: 0.6   # cost added to a cut when a blend is possible
+exit:
+  strength_ladder: [0.3, 0.2, 0.1, 0.0]
+landing:
+  search_back: 4
+  search_fwd: 5
+  bass_weight: 1.5
+  keep_hint_ratio: 0.85
+  min_strength: 0.6
+  default_bar: 9
+techniques:
+  max_brakes: 2
+  dead_stop_min_rise_bpm: 15   # one dead stop, on the biggest tempo rise that cuts
+  allowed: [vocalover, handoff, bassswap, filter, tease, echo, wash, roll, cut, brake, stop]

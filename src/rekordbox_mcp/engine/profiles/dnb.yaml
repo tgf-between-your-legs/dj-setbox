@@ -1,0 +1,13 @@
+name: dnb
+description: Drum & bass, fast double drops, 16-bar blends, half-time aware
+phrase_bars: 16
+tempo: {blend_max_pct: 4.0, half_double_time: true}
+play: {target_sec: 90, min_sec: 60, max_sec: 150, min_bars_after_landing: 16}
+closer: {target_sec: 120, max_sec: 180, min_bars_after_landing: 32, fallback_bars: 64}
+blend: {overlap_long: 16, overlap_short: 8, vocal_stack_pct: 70, prefer_blend_bonus: 1.0}
+exit: {strength_ladder: [0.3, 0.2, 0.1, 0.0]}
+landing: {search_back: 8, search_fwd: 8, bass_weight: 2.0, keep_hint_ratio: 0.85, min_strength: 0.6, default_bar: 33}
+techniques:
+  max_brakes: 1
+  dead_stop_min_rise_bpm: 999
+  allowed: [bassswap, filter, tease, echo, wash, roll, cut, brake]

@@ -1,0 +1,51 @@
+[project]
+name = "dj-setbox"
+version = "0.2.0"
+description = "dj-setbox: MCP server and set-planning engine for rekordbox 7: read the library, plan transitions from rekordbox's own analysis, write cues safely."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Matt" }
+]
+requires-python = ">=3.12"
+keywords = ["rekordbox", "dj", "mcp", "model-context-protocol", "set-planning", "cue-points"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Topic :: Multimedia :: Sound/Audio",
+]
+dependencies = [
+    "fastmcp>=4.0.3",
+    "pyrekordbox>=0.4.4",
+    "numpy>=1.26",
+    "pyyaml>=6",
+    "jsonschema>=4",
+]
+
+[project.optional-dependencies]
+web = ["fastapi>=0.110", "uvicorn>=0.29"]
+llm = ["anthropic>=0.40"]
+dev = ["pytest>=8", "httpx>=0.27", "fastapi>=0.110", "uvicorn>=0.29", "anthropic>=0.40"]
+
+[project.urls]
+Homepage = "https://github.com/tgf-between-your-legs/dj-setbox"
+Issues = "https://github.com/tgf-between-your-legs/dj-setbox/issues"
+
+[project.scripts]
+dj-setbox = "rekordbox_mcp:main"
+rekordbox-mcp = "rekordbox_mcp:main"
+rbmcp = "rekordbox_mcp.cli:main"
+setbox-web = "rekordbox_mcp.webapp.app:main"
+rekordbox-mcp-web = "rekordbox_mcp.webapp.app:main"
+
+[build-system]
+requires = ["uv_build>=0.12.2,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.uv.build-backend]
+module-name = "rekordbox_mcp"

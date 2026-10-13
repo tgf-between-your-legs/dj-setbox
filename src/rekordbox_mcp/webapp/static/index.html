@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Set planner · dj-setbox</title>
+<style>
+/* Layout: control rail on the left (crate, profile, energy curve, request), plan workspace on the right
+   (summary, timeline strip, transition cards, actions). Same palette as the printed run sheet. */
+:root {
+  --bg: #fbeff5; --panel: #fff; --ink: #1f1426; --muted: #6e5868; --line: #ecd3e0; --accent: #d92f83;
+  --g: #18874a; --r: #cf2d47; --b: #2b62d1; --warn: #b5530b;
+  --f-body: system-ui, -apple-system, "Segoe UI", sans-serif; --f-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --shadow: 3px 3px 0 var(--ink);
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #150f19; --panel: #211928; --ink: #f7e9f1; --muted: #b59cae; --line: #3a2b42; --accent: #ff5fae;
+  --g: #3ccf7d; --r: #ff6378; --b: #6f9cff; --warn: #f0a050; --shadow: 3px 3px 0 #000; color-scheme: dark; } }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+.strip:empty { display: none; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--f-body); }
+header { display: flex; align-items: center; gap: 16px; padding: 14px 20px; border-bottom: 2px solid var(--ink); flex-wrap: wrap; }
+h1 { font-size: 18px; margin: 0; letter-spacing: -0.01em; }
+h1 em { font-style: normal; color: var(--accent); }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; margin: 0 0 8px; color: var(--muted); }
+.pill { font: 12px var(--f-mono); border: 1.5px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+.pill.on { border-color: var(--warn); color: var(--warn); }
+.pill.ok { border-color: var(--g); color: var(--g); }
+main { display: grid; grid-template-columns: 320px 1fr; gap: 20px; padding: 20px; align-items: start; }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+.panel { background: var(--panel); border: 2px solid var(--ink); border-radius: 10px; box-shadow: var(--shadow); padding: 14px; display: grid; gap: 12px; min-width: 0; }
+label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+select, textarea, input[type=number] { font: inherit; color: var(--ink); background: var(--bg); border: 1.5px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; }
+textarea { resize: vertical; min-height: 60px; }
+button { font: 600 13px var(--f-body); border: 2px solid var(--ink); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+button.primary { background: var(--ink); color: var(--bg); }
+button.danger { border-color: var(--r); color: var(--r); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.curve svg { width: 100%; height: 120px; background: var(--bg); border: 1.5px solid var(--line); border-radius: 6px; touch-action: none; }
+.curve circle { fill: var(--accent); cursor: grab; }
+.curve polyline { fill: none; stroke: var(--ink); stroke-width: 2; }
+.hint { font-size: 12px; color: var(--muted); margin: 0; }
+.stats { display: flex; gap: 6px 18px; flex-wrap: wrap; font: 12px var(--f-mono); color: var(--muted); }
+.stats b { font: 700 18px var(--f-body); color: var(--ink); margin-right: 4px; }
+.strip { display: flex; height: 46px; border: 2px solid var(--ink); border-radius: 6px; overflow: hidden; }
+.strip div { min-width: 2px; border-right: 1px solid var(--panel); position: relative; }
+.strip div:hover { outline: 2px solid var(--accent); z-index: 1; }
+.cards { display: grid; gap: 10px; }
+.tx { border: 2px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: start; }
+.tx.risky { border-color: var(--warn); }
+.num { font: 700 20px var(--f-body); }
+.num small { display: block; font: 11px var(--f-mono); color: var(--muted); }
+.names { font-weight: 600; overflow-wrap: anywhere; }
+.names span { color: var(--muted); font-weight: 400; }
+.meta { font: 12px var(--f-mono); color: var(--muted); }
+.chip { font: 700 11px var(--f-body); text-transform: uppercase; letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; color: var(--bg); background: var(--b); }
+.chip.cut { background: var(--ink); }
+.flags { margin: 4px 0 0; padding-left: 18px; color: var(--warn); font-size: 13px; }
+.rate { display: flex; gap: 6px; }
+.rate button { padding: 3px 10px; font-size: 12px; border-width: 1.5px; }
+.rate button[aria-pressed=true].yes { border-color: var(--g); color: var(--g); }
+.rate button[aria-pressed=true].no { border-color: var(--r); color: var(--r); }
+.msg { font: 12px var(--f-mono); white-space: pre-wrap; background: var(--bg); border: 1.5px dashed var(--line); border-radius: 6px; padding: 8px; margin: 0; max-height: 260px; overflow: auto; }
+.msg.err { border-color: var(--r); color: var(--r); }
+.empty { color: var(--muted); }
+</style>
+
+<header>
+  <h1>Set planner <em>· dj-setbox</em></h1>
+  <span class="pill" id="rb">checking rekordbox…</span>
+  <span class="pill" id="llm"></span>
+</header>
+
+<main>
+  <aside class="panel" aria-label="Set controls">
+    <label>Crate (playlist) <select id="crate"></select></label>
+    <label>Genre profile <select id="profile"></select></label>
+    <div class="row">
+      <label style="flex:1">Opener <select id="opener"><option value="">auto</option></select></label>
+      <label style="flex:1">Closer <select id="closer"><option value="">auto</option></select></label>
+    </div>
+    <div class="curve">
+      <h2>Energy curve</h2>
+      <svg id="curve" viewBox="0 0 300 120" role="img" aria-label="Energy curve, drag the points"></svg>
+      <p class="hint">Drag the points: left is the start of the set, up is more energy. Used by Optimize.</p>
+    </div>
+    <label>Set size (tracks, blank = whole crate) <input type="number" id="size" min="2"></label>
+    <label>Describe the set (optional)
+      <textarea id="ask" placeholder="Open on something warm, peak in the last third, end on drum &amp; bass"></textarea></label>
+    <div class="row"><button id="parse" type="button">Turn into constraints</button></div>
+    <div class="row">
+      <button class="primary" id="plan" type="button">Plan in this order</button>
+      <button class="primary" id="opt" type="button">Optimize</button>
+    </div>
+    <label>Saved plans <select id="history"><option value="">—</option></select></label>
+  </aside>
+
+  <section class="panel" aria-label="Plan">
+    <div class="row" style="justify-content:space-between">
+      <h2 id="title" style="margin:0">No plan yet</h2>
+      <div class="row" id="actions" hidden>
+        <a id="sheet" target="_blank"><button type="button">Run sheet</button></a>
+        <button id="diff" type="button">Diff</button>
+        <button id="apply" type="button" class="danger">Write cues…</button>
+        <button id="stage" type="button">Audition…</button>
+        <button id="collect" type="button">Collect ratings</button>
+        <select id="export" aria-label="Export"><option value="">Export…</option><option>rekordbox_xml</option><option>m3u8</option><option>serato_crate</option><option>json</option></select>
+        <button id="train" type="button">Train</button>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="strip" id="strip" aria-label="Timeline, width is play time, colour is energy"></div>
+    <pre class="msg" id="msg" hidden></pre>
+    <div class="cards" id="cards"><p class="empty">Pick a crate and press Plan or Optimize.</p></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { plan: null, crate: [], curve: [[0, .35], [.25, .55], [.6, .9], [.85, 1], [1, .7]], cons: null, pending: null };
+  function api(path, opts) {
+    opts = opts || {};
+    if (opts.body && typeof opts.body !== 'string') { opts.body = JSON.stringify(opts.body); opts.headers = { 'Content-Type': 'application/json' }; }
+    return fetch(path, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) throw new Error(d.error || d.detail || r.statusText); return d; });
+    });
+  }
+  function say(t, err) { var m = $('msg'); m.hidden = !t; m.textContent = t || ''; m.classList.toggle('err', !!err); }
+  function busy(on) { ['plan', 'opt', 'apply', 'stage', 'collect', 'train', 'diff'].forEach(function (id) { $(id).disabled = on; }); $('parse').disabled = on || !state.llm; }
+  function run(p) { busy(true); return p.catch(function (e) { say(e.message, true); }).finally(function () { busy(false); }); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function mmss(s) { s = Math.round(s || 0); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+
+  // energy curve editor
+  function drawCurve() {
+    var svg = $('curve'), W = 300, H = 120, P = 10;
+    var X = function (x) { return P + x * (W - 2 * P); }, Y = function (y) { return H - P - y * (H - 2 * P); };
+    svg.innerHTML = '<polyline points="' + state.curve.map(function (p) { return X(p[0]) + ',' + Y(p[1]); }).join(' ') + '"/>' +
+      state.curve.map(function (p, i) { return '<circle r="7" cx="' + X(p[0]) + '" cy="' + Y(p[1]) + '" data-i="' + i + '" tabindex="0" aria-label="point ' + (i + 1) + '"/>'; }).join('');
+    svg.querySelectorAll('circle').forEach(function (c) {
+      c.addEventListener('pointerdown', function (ev) {
+        c.setPointerCapture(ev.pointerId);
+        var i = +c.dataset.i;
+        function mv(e) {
+          var r = svg.getBoundingClientRect();
+          var x = Math.min(1, Math.max(0, ((e.clientX - r.left) / r.width * W - P) / (W - 2 * P)));
+          var y = Math.min(1, Math.max(0, (H - P - (e.clientY - r.top) / r.height * H) / (H - 2 * P)));
+          if (i === 0) x = 0; if (i === state.curve.length - 1) x = 1;
+          var lo = i ? state.curve[i - 1][0] : 0, hi = i < state.curve.length - 1 ? state.curve[i + 1][0] : 1;
+          state.curve[i] = [Math.min(hi, Math.max(lo, x)), y]; drawCurve();
+        }
+        function up() { svg.removeEventListener('pointermove', mv); svg.removeEventListener('pointerup', up); }
+        svg.addEventListener('pointermove', mv); svg.addEventListener('pointerup', up);
+      });
+      c.addEventListener('keydown', function (e) {
+        var i = +c.dataset.i, d = { ArrowUp: .05, ArrowDown: -.05 }[e.key];
+        if (d) { state.curve[i][1] = Math.min(1, Math.max(0, state.curve[i][1] + d)); drawCurve(); svg.querySelector('[data-i="' + i + '"]').focus(); e.preventDefault(); }
+      });
+    });
+  }
+
+  function fillTracks() {
+    ['opener', 'closer'].forEach(function (id) {
+      $(id).innerHTML = '<option value="">auto</option>' + state.crate.map(function (t) { return '<option value="' + esc(t.id) + '">' + esc(t.title) + ' · ' + t.bpm + '</option>'; }).join('');
+    });
+  }
+  function loadCrate() {
+    var id = $('crate').value; if (!id) return;
+    run(api('/api/playlists/' + id + '/tracks').then(function (t) { state.crate = t; fillTracks(); say(t.length + ' tracks in the crate.'); }));
+    api('/api/plans?playlist_id=' + id).then(function (ps) {
+      $('history').innerHTML = '<option value="">—</option>' + ps.map(function (p) { return '<option value="' + p.plan_id + '">#' + p.plan_id + ' ' + esc(p.name) + ' (' + p.status + ')</option>'; }).join('');
+    });
+  }
+
+  function constraints() {
+    var c = Object.assign({}, state.cons || {});
+    if ($('opener').value) c.opener = $('opener').value;
+    if ($('closer').value) c.closer = $('closer').value;
+    if ($('size').value) c.size = +$('size').value;
+    c.energy_curve = state.curve.map(function (p) { return [+p[0].toFixed(3), +p[1].toFixed(3)]; });
+    return c;
+  }
+
+  function show(p) {
+    state.plan = p;
+    $('actions').hidden = false;
+    $('title').textContent = '#' + p.plan_id + ' · ' + p.name + ' · ' + p.status;
+    $('sheet').href = '/api/plans/' + p.plan_id + '/runsheet';
+    var s = p.summary || {};
+    $('stats').innerHTML = '<span><b>' + s.tracks + '</b>tracks</span><span><b>' + s.blends + '</b>blends</span><span><b>' + s.cuts +
+      '</b>cuts</span><span><b>' + s.cues + '</b>cues</span><span><b>~' + Math.round(s.minutes) + ' min</b></span><span><b>' + mmss(s.play_sec_median) + '</b>per track</span>' +
+      (p.optimizer ? '<span><b>' + p.optimizer.plan_cost + '</b>cost</span>' : '');
+    var en = {}; state.crate.forEach(function (t) { en[t.id] = t.energy; });
+    $('strip').innerHTML = p.tracks.map(function (t) {
+      var e = en[t.track_id] == null ? .5 : en[t.track_id];
+      return '<div style="flex:' + Math.max(1, t.play_sec) + ';background:hsl(' + (330 - e * 300) + ' 70% ' + (55 - e * 15) + '%)" title="' +
+        esc(t.pos + '. ' + (t.info.title || t.track_id) + ' · ' + t.info.bpm + ' BPM · plays ' + mmss(t.play_sec)) + '"></div>';
+    }).join('');
+    var maxRisk = Math.max.apply(null, p.transitions.map(function (r) { return r.risk; }).concat([0]));
+    $('cards').innerHTML = p.transitions.map(function (r) {
+      return '<article class="tx' + (r.risk >= Math.max(3, maxRisk * .6) ? ' risky' : '') + '">' +
+        '<div class="num">' + r.pos + '<small>→' + (r.pos + 1) + '</small></div>' +
+        '<div><div class="names">' + esc(r.a_title) + ' <span>into</span> ' + esc(r.b_title) + '</div>' +
+        '<div class="meta"><span class="chip ' + (r.family === 'cut' ? 'cut' : '') + '">' + esc(r.technique) + '</span> ' +
+        (r.family === 'blend' ? r.overlap + '-bar blend' : 'cut') + ' · A out at bar ' + r.out_done + ' · B lands bar ' + r.b_land + ' · risk ' + r.risk + '</div>' +
+        (r.flags.length ? '<ul class="flags">' + r.flags.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul>' : '') + '</div>' +
+        '<div class="rate" data-a="' + esc(r.a_id) + '" data-b="' + esc(r.b_id) + '">' +
+        '<button type="button" class="yes" aria-pressed="' + (r.rating === true) + '">Works</button>' +
+        '<button type="button" class="no" aria-pressed="' + (r.rating === false) + '">Doesn\'t</button></div></article>';
+    }).join('');
+    $('cards').querySelectorAll('.rate button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var box = b.parentNode, works = b.classList.contains('yes');
+        api('/api/ratings', { method: 'POST', body: { a: box.dataset.a, b: box.dataset.b, works: works, plan_id: state.plan.plan_id } }).then(function () {
+          box.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+        }).catch(function (e) { say(e.message, true); });
+      });
+    });
+  }
+
+  // two-step writes: first click shows the dry run, second click (same button) writes
+  function twoStep(btn, label, dry, wet) {
+    if (state.pending !== btn.id) {
+      run(dry().then(function (txt) { say(txt + '\n\nPress "' + label + '" again to write (rekordbox must be closed).'); state.pending = btn.id; btn.textContent = label; }));
+    } else {
+      state.pending = null;
+      run(wet().then(function (txt) { say(txt); btn.textContent = btn.dataset.label; }));
+    }
+  }
+
+  $('crate').addEventListener('change', loadCrate);
+  $('history').addEventListener('change', function () { if (this.value) run(api('/api/plans/' + this.value).then(show)); });
+  $('plan').addEventListener('click', function () {
+    run(api('/api/plan', { method: 'POST', body: { playlist_id: $('crate').value, profile: $('profile').value, opener: $('opener').value || null, closer: $('closer').value || null } })
+      .then(function (p) { show(p); say(''); }));
+  });
+  $('opt').addEventListener('click', function () {
+    say('Optimizing… this can take a minute on a big crate.');
+    run(api('/api/optimize', { method: 'POST', body: { playlist_id: $('crate').value, profile: $('profile').value, constraints: constraints() } })
+      .then(function (p) { show(p); say(p.optimizer.violations.length ? 'Unmet: ' + p.optimizer.violations.join(', ') : ''); }));
+  });
+  $('parse').addEventListener('click', function () {
+    run(api('/api/constraints/parse', { method: 'POST', body: { text: $('ask').value, playlist_id: $('crate').value } }).then(function (c) {
+      state.cons = c; if (c.energy_curve && c.energy_curve.length > 1) { state.curve = c.energy_curve; drawCurve(); }
+      if (c.opener) $('opener').value = c.opener; if (c.closer) $('closer').value = c.closer; if (c.size) $('size').value = c.size;
+      say('Constraints:\n' + JSON.stringify(c, null, 1));
+    }));
+  });
+  $('diff').addEventListener('click', function () {
+    run(api('/api/plans/' + state.plan.plan_id + '/diff').then(function (d) {
+      say('Would add ' + d.counts.add + ', delete ' + d.counts.delete + ' (engine-owned only), adopt ' + d.counts.adopt + ', keep ' + d.counts.keep +
+        '.\nLeaves ' + d.counts.foreign + ' hand-set cues alone' + (d.uncoloured_foreign ? ' (' + d.uncoloured_foreign + ' uncoloured memory cues show as red in rekordbox)' : '') + '.');
+    }));
+  });
+  $('apply').dataset.label = $('apply').textContent;
+  $('apply').addEventListener('click', function () {
+    var id = state.plan.plan_id;
+    twoStep(this, 'Write cues now', function () {
+      return api('/api/plans/' + id + '/apply', { method: 'POST', body: { dry_run: true } }).then(function (d) {
+        return 'Dry run: add ' + d.counts.add + ', delete ' + d.counts.delete + ', adopt ' + d.counts.adopt + '. Hand-set cues: ' + d.counts.foreign + ' untouched.';
+      });
+    }, function () {
+      return api('/api/plans/' + id + '/apply', { method: 'POST', body: { dry_run: false } }).then(function (d) {
+        return (d.ok ? 'Written and verified. ' : 'Written but verify found differences. ') + 'Added ' + d.added + ', deleted ' + d.deleted + '.\nRollback: ' + (d.rollback || 'nothing written');
+      });
+    });
+  });
+  $('stage').dataset.label = $('stage').textContent;
+  $('stage').addEventListener('click', function () {
+    var id = state.plan.plan_id;
+    function fmt(d) { return d.deck_steps.map(function (s) { return '#' + s.pos + ' ' + s.a + ' → ' + s.b + ' (' + s.technique + ', risk ' + s.risk + ')\n  ' + s.steps.join('\n  '); }).join('\n\n'); }
+    twoStep(this, 'Stage audition now', function () {
+      return api('/api/plans/' + id + '/audition', { method: 'POST', body: { limit: 8, dry_run: true } }).then(function (d) { return 'Riskiest ' + d.pairs + ' pairs:\n\n' + fmt(d); });
+    }, function () {
+      return api('/api/plans/' + id + '/audition', { method: 'POST', body: { limit: 8, dry_run: false } }).then(function (d) { return 'Playlist "' + d.playlist.name + '" ready with ' + d.playlist.tracks + ' tracks.\n\n' + fmt(d); });
+    });
+  });
+  $('collect').addEventListener('click', function () {
+    run(api('/api/plans/' + state.plan.plan_id + '/collect', { method: 'POST' }).then(function (d) {
+      say('Read ' + d.rated.length + ' ratings from rekordbox' + (d.conflicts.length ? ', ' + d.conflicts.length + ' with both green and red' : '') + '.');
+      return api('/api/plans/' + state.plan.plan_id).then(show);
+    }));
+  });
+  $('train').addEventListener('click', function () {
+    run(api('/api/train', { method: 'POST', body: { profile: state.plan.profile } }).then(function (d) { say(JSON.stringify(d, null, 1)); }));
+  });
+  $('export').addEventListener('change', function () {
+    if (this.value) { window.location = '/api/plans/' + state.plan.plan_id + '/export/' + this.value; this.value = ''; }
+  });
+
+  drawCurve();
+  api('/api/health').then(function (h) {
+    $('rb').textContent = h.rekordbox_running ? 'rekordbox open: read-only' : 'rekordbox closed: writes allowed';
+    $('rb').className = 'pill ' + (h.rekordbox_running ? 'on' : 'ok');
+    $('llm').textContent = h.llm ? 'language features on' : 'language features off (no API key)';
+    state.llm = h.llm; $('parse').disabled = !h.llm;
+  });
+  api('/api/profiles').then(function (p) { $('profile').innerHTML = Object.keys(p).map(function (k) { return '<option value="' + k + '"' + (k === 'kpop' ? ' selected' : '') + '>' + k + ' · ' + esc(p[k]) + '</option>'; }).join(''); });
+  api('/api/playlists').then(function (ps) {
+    $('crate').innerHTML = '<option value="">choose…</option>' + ps.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + ' (' + p.tracks + ')</option>'; }).join('');
+  }).catch(function (e) { say(e.message, true); });
+})();
+</script>
+</html>

@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>%%TITLE%%</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a printed DJ run sheet. Header + BPM arc, technique legend that doubles as a filter, then one card per transition grouped by set section. */
+:root {
+  --bg: #fbeff5; --panel: #ffffff; --ink: #1f1426; --muted: #6e5868; --line: #ecd3e0; --accent: #d92f83;
+  --g: #18874a; --r: #cf2d47; --b: #2b62d1;
+  --fam-blend: #2b62d1; --fam-fx: #d92f83; --fam-cut: #1f1426; --band: #f6e1ec;
+  --f-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --shadow: 3px 3px 0 var(--ink);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #150f19; --panel: #211928; --ink: #f7e9f1; --muted: #b59cae; --line: #3a2b42; --accent: #ff5fae;
+  --g: #3ccf7d; --r: #ff6378; --b: #6f9cff; --fam-blend: #6f9cff; --fam-fx: #ff5fae; --fam-cut: #f7e9f1; --band: #1e1624;
+  --shadow: 3px 3px 0 #000; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #150f19; --panel: #211928; --ink: #f7e9f1; --muted: #b59cae; --line: #3a2b42; --accent: #ff5fae;
+  --g: #3ccf7d; --r: #ff6378; --b: #6f9cff; --fam-blend: #6f9cff; --fam-fx: #ff5fae; --fam-cut: #f7e9f1; --band: #1e1624;
+  --shadow: 3px 3px 0 #000; color-scheme: dark; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
+.wrap { max-width: 1060px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 64px; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(26px, 5vw, 40px); line-height: 1.1; letter-spacing: -0.01em; }
+h1 em { font-style: normal; color: var(--accent); }
+h2 { font-size: 18px; }
+.lede { max-width: 66ch; color: var(--muted); margin: 8px 0 0; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 14px; font-family: var(--f-mono); font-size: 13px; }
+.stats b { font-family: var(--f-display); font-size: 18px; color: var(--ink); margin-right: 4px; }
+.panel { background: var(--panel); border: 2px solid var(--ink); border-radius: 10px; box-shadow: var(--shadow); padding: 18px; min-width: 0; }
+.chart { overflow-x: auto; }
+.chart svg { width: 100%; min-width: 560px; height: auto; display: block; }
+.band { fill: var(--band); }
+.grid { stroke: var(--line); stroke-width: 1; }
+.ax { fill: var(--muted); font: 11px var(--f-mono); }
+.ax.end { text-anchor: end; } .ax.mid { text-anchor: middle; }
+.bpm { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; }
+.dot { stroke: var(--panel); stroke-width: 2; }
+.dot.fam-blend { fill: var(--fam-blend); } .dot.fam-fx { fill: var(--fam-fx); } .dot.fam-cut { fill: var(--fam-cut); }
+.chart-key { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+.chart-key span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+.rules { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 12px 0 0; padding: 0; list-style: none; }
+.rules li { border-top: 2px solid var(--ink); padding-top: 8px; font-size: 14px; }
+.rules b { display: block; font-family: var(--f-display); font-size: 13px; margin-bottom: 2px; }
+.legend { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); margin-top: 12px; }
+.tech-card { text-align: left; font: inherit; color: inherit; background: var(--bg); border: 2px solid var(--line); border-radius: 8px; padding: 10px 12px; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 6px; align-content: start; }
+.tech-card:hover { border-color: var(--ink); }
+.tech-card[aria-pressed="true"] { border-color: var(--ink); box-shadow: var(--shadow); background: var(--panel); }
+.tech-card:focus-visible, .done input:focus-visible, .clear:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.tech-card .count { font: 500 12px var(--f-mono); color: var(--muted); align-self: center; }
+.tech-card .how { grid-column: 1 / -1; font-size: 13px; color: var(--muted); line-height: 1.45; }
+.chip { display: inline-block; font: 700 11px var(--f-display); letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; color: var(--bg); justify-self: start; }
+.chip.fam-blend { background: var(--fam-blend); } .chip.fam-fx { background: var(--fam-fx); } .chip.fam-cut { background: var(--fam-cut); }
+.filterbar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 12px; font-size: 13px; color: var(--muted); }
+.clear { font: 500 13px var(--f-body); background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; text-decoration: underline; }
+.sec { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 20px; padding-top: 10px; border-top: 3px solid var(--ink); }
+.sec small { font: 400 13px var(--f-mono); color: var(--muted); }
+.list { display: grid; gap: 14px; }
+.tx { background: var(--panel); border: 2px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; grid-template-columns: 54px 1fr auto; gap: 14px; scroll-margin-top: 16px; }
+.tx:target { border-color: var(--accent); box-shadow: 3px 3px 0 var(--accent); }
+.tx.is-done { opacity: 0.6; }
+.num { font: 700 24px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.num small { display: block; font: 500 11px var(--f-mono); color: var(--muted); margin-top: 4px; }
+.body { min-width: 0; display: grid; gap: 10px; }
+.head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.meta { font: 12px var(--f-mono); color: var(--muted); }
+.st { font-size: 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px; padding: 2px 8px; }
+.st-on { color: var(--g); border: 1px solid var(--g); }
+.flow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
+.side { min-width: 0; }
+.lbl { font: 700 10px var(--f-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.trk { font-weight: 600; margin-top: 2px; overflow-wrap: anywhere; }
+.by { font-weight: 400; color: var(--muted); }
+.spec { font: 12px var(--f-mono); color: var(--muted); }
+.cues { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; align-items: center; }
+.cue { font: 12px var(--f-mono); font-variant-numeric: tabular-nums; border: 1.5px solid currentColor; border-radius: 6px; padding: 2px 7px; white-space: nowrap; }
+.cue b { font-weight: 500; letter-spacing: 0.04em; }
+.cue i { font-style: normal; opacity: 0.85; }
+.c-g { color: var(--g); } .c-r { color: var(--r); } .c-b { color: var(--b); }
+.land { font: 12px var(--f-mono); color: var(--muted); }
+.note { margin: 0; max-width: 72ch; }
+.small { margin: 0; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.key.warn { color: var(--r); font-weight: 600; }
+.done { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: flex-start; white-space: nowrap; cursor: pointer; }
+.empty { color: var(--muted); }
+.rate { display: flex; gap: 6px; }
+.rate button { font: 500 12px var(--f-body); border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 999px; padding: 2px 10px; cursor: pointer; }
+.rate button[aria-pressed="true"].yes { border-color: var(--g); color: var(--g); font-weight: 600; }
+.rate button[aria-pressed="true"].no { border-color: var(--r); color: var(--r); font-weight: 600; }
+.flags { margin: 0; padding-left: 18px; font-size: 13px; color: var(--r); }
+@media (max-width: 680px) {
+  .tx { grid-template-columns: 1fr; gap: 8px; }
+  .num { display: flex; align-items: baseline; gap: 8px; } .num small { margin: 0; }
+  .flow { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="wrap">
+<header>
+  <h1>%%HEADLINE%%</h1>
+  <p class="lede">%%LEDE%%</p>
+  <div class="stats">%%STATS%%</div>
+</header>
+
+<section class="panel" aria-labelledby="arc">
+  <h2 id="arc">The arc</h2>
+  <div class="chart">%%SVG%%</div>
+  <div class="chart-key"><span style="--c: var(--fam-blend)">Blend</span><span style="--c: var(--fam-fx)">FX exit or filter</span><span style="--c: var(--fam-cut)">Cut, brake or stop</span><span>Tap a dot to jump to it.</span></div>
+</section>
+
+<section class="panel" aria-labelledby="fresh">
+  <h2 id="fresh">Keeping it fresh</h2>
+  <ul class="rules">
+%%RULES%%
+  </ul>
+</section>
+
+<section class="panel" aria-labelledby="moves">
+  <h2 id="moves">The moves</h2>
+  <div class="legend">%%LEGEND%%</div>
+  <div class="filterbar"><span id="filter-status">Tap a move to show only those transitions.</span><button class="clear" type="button" id="clear" hidden>Show all</button></div>
+</section>
+
+<section class="panel" aria-labelledby="rate">
+  <h2 id="rate">Rate as you audition</h2>
+  <p class="lede">Mark each transition <b>Works</b> or <b>Doesn't</b> after you try it on the decks. Ratings stay in this browser; when you're done, copy them and paste into <code>import_ratings</code> (or put a green/red hot cue near A's OUT DONE in rekordbox and run <code>collect_ratings</code>).</p>
+  <div class="filterbar"><span id="rate-status"></span><button class="clear" type="button" id="copy-ratings">Copy ratings</button></div>
+  <textarea id="ratings-out" rows="3" readonly hidden style="width:100%;font:12px var(--f-mono)"></textarea>
+</section>
+
+<section class="list" aria-label="Transitions">
+%%CARDS%%
+<p class="empty" id="empty" hidden>No transitions use this move.</p>
+</section>
+</div>
+
+<script>
+(function () {
+  var cards = Array.prototype.slice.call(document.querySelectorAll('.tx'));
+  var heads = Array.prototype.slice.call(document.querySelectorAll('.sec'));
+  var btns = Array.prototype.slice.call(document.querySelectorAll('.tech-card'));
+  var status = document.getElementById('filter-status'), clear = document.getElementById('clear');
+  var active = null;
+  function apply() {
+    var shown = 0;
+    cards.forEach(function (c) { var on = !active || c.dataset.tech === active; c.hidden = !on; if (on) shown++; });
+    heads.forEach(function (h) {
+      var el = h.nextElementSibling, any = false;
+      while (el && !el.classList.contains('sec')) { if (el.classList.contains('tx') && !el.hidden) any = true; el = el.nextElementSibling; }
+      h.hidden = !any;
+    });
+    btns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.filter === active)); });
+    clear.hidden = !active;
+    status.textContent = active ? 'Showing ' + shown + ' transition' + (shown === 1 ? '' : 's') + '.' : 'Tap a move to show only those transitions.';
+    document.getElementById('empty').hidden = shown > 0;
+  }
+  btns.forEach(function (b) { b.addEventListener('click', function () { active = active === b.dataset.filter ? null : b.dataset.filter; apply(); }); });
+  clear.addEventListener('click', function () { active = null; apply(); });
+  var KEY = '%%STORAGE_KEY%%-practised', done = {};
+  try { done = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { done = {}; }
+  document.querySelectorAll('.done input').forEach(function (cb) {
+    var n = cb.dataset.n, card = document.getElementById('t' + n);
+    cb.checked = !!done[n]; card.classList.toggle('is-done', cb.checked);
+    cb.addEventListener('change', function () {
+      done[n] = cb.checked; card.classList.toggle('is-done', cb.checked);
+      try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) {}
+    });
+  });
+
+  var RKEY = '%%STORAGE_KEY%%-ratings', PLAN = %%PLAN_ID%%, rated = {};
+  try { rated = JSON.parse(localStorage.getItem(RKEY) || '{}') || {}; } catch (e) { rated = {}; }
+  function rstatus() { var n = Object.keys(rated).length; document.getElementById('rate-status').textContent = n + ' rated'; }
+  document.querySelectorAll('.rate').forEach(function (box) {
+    var k = box.dataset.a + '>' + box.dataset.b;
+    box.querySelectorAll('button').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(rated[k] === (b.classList.contains('yes'))));
+      b.addEventListener('click', function () {
+        var v = b.classList.contains('yes');
+        if (rated[k] === v) delete rated[k]; else rated[k] = v;
+        box.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', String(rated[k] === x.classList.contains('yes'))); });
+        try { localStorage.setItem(RKEY, JSON.stringify(rated)); } catch (e) {}
+        rstatus();
+      });
+    });
+  });
+  rstatus();
+  document.getElementById('copy-ratings').addEventListener('click', function () {
+    var out = { plan_id: PLAN, ratings: Object.keys(rated).map(function (k) { var p = k.split('>'); return { a: p[0], b: p[1], works: rated[k] }; }) };
+    var ta = document.getElementById('ratings-out'); ta.hidden = false; ta.value = JSON.stringify(out); ta.select();
+    try { navigator.clipboard.writeText(ta.value); } catch (e) {}
+  });
+})();
+</script>

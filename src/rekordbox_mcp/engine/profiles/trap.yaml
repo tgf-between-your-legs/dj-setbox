@@ -1,0 +1,13 @@
+name: trap
+description: Trap and hip-hop, quick cuts and short play, half/double-time aware
+phrase_bars: 8
+tempo: {blend_max_pct: 5.0, half_double_time: true}
+play: {target_sec: 60, min_sec: 35, max_sec: 90, min_bars_after_landing: 8}
+closer: {target_sec: 75, max_sec: 120, min_bars_after_landing: 16, fallback_bars: 32}
+blend: {overlap_long: 8, overlap_short: 4, vocal_stack_pct: 60, prefer_blend_bonus: 0.0}
+exit: {strength_ladder: [0.3, 0.2, 0.1, 0.0]}
+landing: {search_back: 4, search_fwd: 4, bass_weight: 1.5, keep_hint_ratio: 0.85, min_strength: 0.5, default_bar: 9}
+techniques:
+  max_brakes: 3
+  dead_stop_min_rise_bpm: 20
+  allowed: [vocalover, handoff, bassswap, filter, echo, wash, roll, cut, brake, stop]

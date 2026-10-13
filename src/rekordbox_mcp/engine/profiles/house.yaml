@@ -1,0 +1,13 @@
+name: house
+description: House and tech house, long blends, full 16/32-bar phrases
+phrase_bars: 16
+tempo: {blend_max_pct: 4.0, half_double_time: false}
+play: {target_sec: 180, min_sec: 120, max_sec: 300, min_bars_after_landing: 32}
+closer: {target_sec: 240, max_sec: 360, min_bars_after_landing: 32, fallback_bars: 64}
+blend: {overlap_long: 16, overlap_short: 8, vocal_stack_pct: 70, prefer_blend_bonus: 1.5}
+exit: {strength_ladder: [0.3, 0.2, 0.1, 0.0]}
+landing: {search_back: 8, search_fwd: 8, bass_weight: 1.5, keep_hint_ratio: 0.85, min_strength: 0.6, default_bar: 17}
+techniques:
+  max_brakes: 0
+  dead_stop_min_rise_bpm: 999
+  allowed: [vocalover, handoff, bassswap, filter, tease, echo, wash, roll, cut]
