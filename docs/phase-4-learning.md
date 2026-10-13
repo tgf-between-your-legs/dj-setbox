@@ -46,6 +46,7 @@ Replace hand-set cost weights with ones learned from what actually worked for yo
 * **Timing estimator**: timestamps generated from a synthetic plan recover every exit within
   one phrase.
 * **Line parsing and matching**: covered by tests.
+* **Live API (2026-10-13)**: Haiku cleaned names and genres for a 76-track crate; encrypted streamed titles are skipped (use `resolve_names`). Opus critiqued a full plan with specific, actionable notes.
 * **Not yet verified**: anything on real ratings (there are none yet), and a real pro tracklist.
 
 ## Exit criteria

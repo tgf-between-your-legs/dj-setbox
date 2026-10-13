@@ -24,7 +24,12 @@ class Engine:
 
     # ------------------------------------------------------------------ features
     def features(self, track_id: str, refresh: bool = False) -> _features.TrackFeatures:
-        return _features.load(self.lib, self.store, str(track_id), refresh=refresh)
+        f = _features.load(self.lib, self.store, str(track_id), refresh=refresh)
+        nm = self.store.names().get(str(track_id))      # display names (seed / oEmbed / manual) win everywhere
+        if nm:
+            f.title = nm["title"] or f.title
+            f.artist = nm["artist"] if nm["artist"] is not None else f.artist
+        return f
 
     def features_many(self, track_ids: list[str], refresh: bool = False) -> list[_features.TrackFeatures]:
         return [self.features(t, refresh) for t in track_ids]
@@ -198,8 +203,19 @@ class Engine:
 
     # ------------------------------------------------------------------ optimizer (phase 3)
     def crate(self, playlist_id: str) -> list[dict]:
-        return [{"id": str(r["id"]), "title": r["title"], "artist": r["artist"], "bpm": r["bpm"], "genre": r["genre"],
-                 "camelot": r["camelot"], "comment": r["comment"]} for r in self.lib.playlist_tracks(str(playlist_id))]
+        """Playlist tracks with display names (stored names first, then a readable fallback for encrypted titles)."""
+        names = self.store.names()
+        out = []
+        for r in self.lib.playlist_tracks(str(playlist_id)):
+            tid = str(r["id"])
+            title, artist = _features.display_name(r["title"], r["artist"], r["file"])
+            if tid in names:
+                title = names[tid]["title"] or title
+                artist = names[tid]["artist"] if names[tid]["artist"] is not None else artist
+            out.append({"id": tid, "title": title, "artist": artist, "bpm": r["bpm"], "genre": r["genre"],
+                        "camelot": r["camelot"], "comment": r["comment"],
+                        "encrypted": (r["title"] or "").startswith(_features.ENCRYPTED_PREFIX) and tid not in names})
+        return out
 
     def optimize_set(self, playlist_id: Optional[str] = None, crate_ids: Optional[list[str]] = None,
                      constraints: Optional[dict] = None, profile: Optional[str] = None, keep_order: bool = False,
@@ -275,7 +291,9 @@ class Engine:
 
     def clean_names(self, playlist_id: str, apply: bool = False, client_=None) -> dict:
         from . import llm
-        rows = llm.clean_names(self.crate(playlist_id), client_=client_)
+        # titles rekordbox keeps encrypted can't be cleaned by a model; resolve_names handles those
+        rows = llm.clean_names([{k: t[k] for k in ("id", "title", "artist", "genre")}
+                                for t in self.crate(playlist_id) if not t["encrypted"]], client_=client_)
         if apply:
             for r in rows:
                 self.store.set_name(r["id"], r["title"], r["artist"], source="llm")
@@ -286,10 +304,14 @@ class Engine:
         plan = self.store.plan(plan_id)
         lines = []
         for t in plan["tracks"]:
-            i = t["info"]; o = i.get("out") or {}
-            lines.append(f"{t['pos']}. {i.get('artist')} - {i.get('title')} ({i.get('bpm')} BPM, {i.get('camelot')}) "
-                         f"bars {t['s']}-{t['e']}, lands {t['land']}"
-                         + (f" -> {o.get('technique')} ({o.get('family')}), {o.get('note')}" if o else ""))
+            f = self.features(t["track_id"])          # metadata from the library + display names, not the plan row
+            o = t["info"].get("out") or {}
+            play = round((t["e"] - t["s"]) * f.bar_sec) if t["e"] else None
+            lines.append(f"{t['pos']}. {f.artist} - {f.title} ({f.bpm:g} BPM, {f.camelot or '?'}, {f.mood or '?'} mood) "
+                         f"plays bars {t['s']}-{t['e']} (~{play}s), lands bar {t['land']}"
+                         + (f" -> next: {t['technique']} ({t['family']}{', ' + str(t['overlap']) + ' bars' if t['overlap'] else ''})"
+                            if t["technique"] else "")
+                         + (f"; {o.get('note')}" if o.get("note") else ""))
         return llm.critique_plan("\n".join(lines), client_=client_)
 
     # ------------------------------------------------------------------ export (phase 5)

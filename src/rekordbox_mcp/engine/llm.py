@@ -38,19 +38,28 @@ def client():
 
 
 def tool_call(system: str, user: str, tool_name: str, schema: dict, job: str = "structure",
-              client_: Any = None, max_tokens: int = 4096) -> dict:
-    """One forced tool call; returns the tool input (already schema-shaped by the model)."""
+              client_: Any = None, max_tokens: int = 8192, retries: int = 1) -> dict:
+    """Ask for exactly one call of `tool_name`; returns its input (schema-shaped by the model).
+
+    Current models reject a forced tool_choice ("tool"/"any") when thinking is on, so this uses
+    "auto" with a firm instruction and retries once if the model answers in text instead.
+    """
     c = client_ or client()
-    msg = c.messages.create(
-        model=model_for(job), max_tokens=max_tokens, system=system,
-        tools=[{"name": tool_name, "description": f"Return the {tool_name} result.", "input_schema": schema}],
-        tool_choice={"type": "tool", "name": tool_name},
-        messages=[{"role": "user", "content": user}],
-    )
-    for block in msg.content:
-        if getattr(block, "type", None) == "tool_use":
-            return dict(block.input)
-    raise RuntimeError("model returned no tool call")
+    sys_prompt = f"{system}\n\nAnswer ONLY by calling the {tool_name} tool exactly once. Do not reply in text."
+    messages = [{"role": "user", "content": user}]
+    for _ in range(retries + 1):
+        msg = c.messages.create(
+            model=model_for(job), max_tokens=max_tokens, system=sys_prompt,
+            tools=[{"name": tool_name, "description": f"Return the {tool_name} result.", "input_schema": schema}],
+            tool_choice={"type": "auto"},
+            messages=messages,
+        )
+        for block in msg.content:
+            if getattr(block, "type", None) == "tool_use" and getattr(block, "name", tool_name) == tool_name:
+                return dict(block.input)
+        messages = messages + [{"role": "assistant", "content": msg.content},
+                               {"role": "user", "content": f"Call the {tool_name} tool now with your answer."}]
+    raise RuntimeError(f"model did not call {tool_name}")
 
 
 def text(system: str, user: str, job: str = "critique", client_: Any = None, max_tokens: int = 4096) -> str:
@@ -70,9 +79,10 @@ def batch_submit(requests: list[dict], client_: Any = None) -> str:
     """requests: [{custom_id, system, user, tool_name, schema}] -> batch id (50% cheaper, async)."""
     c = client_ or client()
     reqs = [{"custom_id": r["custom_id"], "params": {
-        "model": model_for("bulk"), "max_tokens": 4096, "system": r["system"],
+        "model": model_for("bulk"), "max_tokens": 8192,
+        "system": r["system"] + f"\n\nAnswer ONLY by calling the {r['tool_name']} tool exactly once.",
         "tools": [{"name": r["tool_name"], "description": "Return the result.", "input_schema": r["schema"]}],
-        "tool_choice": {"type": "tool", "name": r["tool_name"]},
+        "tool_choice": {"type": "auto"},
         "messages": [{"role": "user", "content": r["user"]}]}} for r in requests]
     return c.messages.batches.create(requests=reqs).id
 

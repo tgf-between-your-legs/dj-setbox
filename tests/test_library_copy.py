@@ -173,3 +173,13 @@ def test_resolve_names_uses_injected_fetch(live_engine):
     tid = r["resolved"][0]["id"]
     p = e.plan_set(order=e.playlist_ids(pl), save=False, use_model=False)
     assert any(t["info"]["title"] == "Resolved Title" for t in p["tracks"] if t["track_id"] == tid)
+
+
+def test_display_names_reach_audition_and_qa(live_engine):
+    e = live_engine
+    pl = _playlist(e)
+    ids = e.playlist_ids(pl)[:4]
+    e.store.set_name(ids[1], "Shown Name", "Shown Artist")
+    p = e.plan_set(order=ids, playlist_id=pl, use_model=False)
+    q = e.audition_queue(p["plan_id"])["queue"]
+    assert any(x["b_title"] == "Shown Name" for x in q if x["b_id"] == ids[1])

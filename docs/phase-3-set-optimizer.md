@@ -51,8 +51,10 @@ under constraints like "open on X, peak late, end on drum & bass".
   * An upward energy curve puts high-energy tracks late.
 * **Real tracks** (library copy, 10 tracks): with the order kept, the optimized plan costs
   ≤ the planner's. With a free order, opener and closer pins hold and every track appears once.
-* `parse_constraints` is tested with a fake client: tier routing, validation, rejection of bad
-  output. **Not yet run against the live API.**
+* `parse_constraints`: unit-tested with a fake client, and run against the live API (Sonnet 5.5,
+  2026-10-13) on a 76-track crate. It returned valid constraints (opener and closer resolved, regions,
+  energy and BPM curves) and noted what it couldn't express. That run is why tool calls use
+  `tool_choice: auto` plus a retry: the API rejects forced tool choice on these models.
 
 ## Exit criteria
 
