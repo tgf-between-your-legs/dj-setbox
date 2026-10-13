@@ -42,6 +42,11 @@ def _relax_pqt2() -> None:
             break
 _relax_pqt2()
 
+def _default_backups() -> Path:
+    from .paths import backups
+    return backups()
+
+
 # --------------------------------------------------------------------------- consts
 HOTCUE_SLOTS = "ABCDEFGHIJKLMNOP"
 KIND_MEMORY = 0
@@ -187,7 +192,7 @@ class Library:
     def __init__(self, db_path: Optional[str] = None, backup_dir: Optional[str] = None):
         self.db_path = db_path or os.environ.get("REKORDBOX_DB_PATH") or None
         self.backup_dir = Path(backup_dir or os.environ.get("REKORDBOX_BACKUP_DIR")
-                               or Path(__file__).parent / "backups")
+                               or _default_backups())
         self._db: Optional[Rekordbox6Database] = None
 
     # -- lifecycle

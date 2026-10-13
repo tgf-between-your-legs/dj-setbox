@@ -64,3 +64,14 @@ def test_concurrent_open_migrates_once(tmp_path):
     [t.start() for t in ts]; [t.join() for t in ts]
     assert errs == []
     assert sqlite3.connect(p).execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS)
+
+
+def test_default_paths_sit_next_to_the_checkout(monkeypatch):
+    from rekordbox_mcp import paths, rbcore
+    from rekordbox_mcp.engine import store as st
+    monkeypatch.delenv("RBMCP_ENGINE_DB", raising=False)
+    monkeypatch.delenv("REKORDBOX_BACKUP_DIR", raising=False)
+    root = paths.home()
+    assert (root / "pyproject.toml").exists()
+    assert st.default_path() == root / "data" / "engine.db"
+    assert rbcore.Library().backup_dir == root / "backups"

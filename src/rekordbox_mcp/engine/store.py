@@ -5,7 +5,7 @@ cached per-beat analysis, verified landings and grid fixes, plans, the ledger of
 the engine wrote, and ratings. Keyed by rekordbox content id, so playlist edits never
 invalidate it.
 
-Location: $RBMCP_ENGINE_DB, else ./data/engine.db next to the repo. Schema changes are
+Location: $RBMCP_ENGINE_DB, else data/engine.db in the checkout (or ~/.dj-setbox/ when installed). Schema changes are
 append-only migrations (MIGRATIONS); `Store()` upgrades an older file in place.
 """
 from __future__ import annotations
@@ -168,7 +168,8 @@ def default_path() -> Path:
     env = os.environ.get("RBMCP_ENGINE_DB")
     if env:
         return Path(env)
-    return Path(__file__).resolve().parents[3] / "data" / "engine.db"
+    from ..paths import engine_db
+    return engine_db()
 
 
 class Store:
